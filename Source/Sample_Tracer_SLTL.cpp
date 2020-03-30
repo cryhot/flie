@@ -74,7 +74,7 @@ void Sample_Tracer_SLTL::add_Formulas_Atomic(int iteration)
 			for (std::vector<signal_t> letter : word.first) {
 
 
-				atomic_Vector.push_back(variables_Y_Word_i_t[word_Index][iteration][t] == (terms[p].compute_Term(letter, variables_Constants, context)));
+				atomic_Vector.push_back(variables_Y_Word_i_t[word_Index][iteration][t] == (terms[p].compute_Term_boolean(letter, variables_Constants, context)));
 				t++;
 			}
 			z3::expr atomic = z3::implies(dag.variables_x_lambda_i[p][iteration], z3::mk_and(atomic_Vector));

@@ -87,40 +87,71 @@ Term_SLTL::Term_SLTL(std::string & input_Line)
 }
 
 
-z3::expr Term_SLTL::compute_Term(std::vector<signal_t>& signals, z3::expr_vector& constants, z3::context& context) {
+z3::expr Term_SLTL::compute_Term_boolean(std::vector<signal_t>& signals, z3::expr_vector& constants, z3::context& context) {
 
-
-	z3::expr left(context);
-	z3::expr right(context);
-	z3::expr result(context);
-
-	if (oper != 'c' && oper != 's') {
-
-		left = left_Term->compute_Term(signals, constants, context);
-		right = right_Term->compute_Term(signals, constants, context);
-	}
+	std::pair<z3::expr,z3::expr> left = left_Term->compute_Term_arithmetic(signals, constants, context);
+	std::pair<z3::expr,z3::expr> right = right_Term->compute_Term_arithmetic(signals, constants, context);
 
 	switch (oper) {
 	case '<':
-		result = (left < right);
-		return result;
+		return (left.second < right.first);
 	case '>':
-		return (left_Term->compute_Term(signals, constants, context) > right_Term->compute_Term(signals, constants, context));
+		return (left.first > right.second);
 	case '=':
-		return (left_Term->compute_Term(signals, constants, context) == right_Term->compute_Term(signals, constants, context));
+		return ((left.first == left.second) && (right.first == right.second) && (left.first == right.first));
 	case '!':
-		return (left_Term->compute_Term(signals, constants, context) != right_Term->compute_Term(signals, constants, context));
-	case '+':
-		return (left_Term->compute_Term(signals, constants, context) + right_Term->compute_Term(signals, constants, context));
-	case '*':
-		return (left_Term->compute_Term(signals, constants, context) * right_Term->compute_Term(signals, constants, context));
-	case '-':
-		return (left_Term->compute_Term(signals, constants, context) - right_Term->compute_Term(signals, constants, context));
-	case 'c':
-		return constants[var];
+		return ((left.second < right.first) || (left.first > right.second));
 	default:
-		return context.real_val(signals[var].first.c_str()); // TODO: handle full range
+		throw "Unknown boolean term";
 	}
+
+}
+
+std::pair<z3::expr,z3::expr> Term_SLTL::compute_Term_arithmetic(std::vector<signal_t>& signals, z3::expr_vector& constants, z3::context& context) {
+
+	// in a pair, first: lower bound, second: upper bound
+	z3::expr lower(context);
+	z3::expr upper(context);
+
+	switch (oper) {
+		case 'c':
+			lower = constants[var];
+			upper = constants[var];
+			return std::make_pair(lower,upper);
+		case 's':
+			lower = context.real_val(signals[var].first.c_str());
+			upper = context.real_val(signals[var].second.c_str());
+			return std::make_pair(lower,upper);
+	}
+
+	std::pair<z3::expr,z3::expr> left = left_Term->compute_Term_arithmetic(signals, constants, context);
+	std::pair<z3::expr,z3::expr> right = right_Term->compute_Term_arithmetic(signals, constants, context);
+
+	switch (oper) {
+	case '+':
+		lower = (left.first + right.first);
+		upper = (left.second + right.second);
+		return std::make_pair(lower,upper);
+	case '-':
+		lower = (left.first - right.second);
+		upper = (left.second - right.first);
+		return std::make_pair(lower,upper);
+	case '*': {
+		z3::expr l_times_l = left.first * right.first;
+		z3::expr l_times_u = left.first * right.second;
+		z3::expr u_times_l = left.second * right.first;
+		z3::expr u_times_u = left.second * right.second;
+		z3::expr l_times_x_min = z3::ite(l_times_l<l_times_u, l_times_l, l_times_u);
+		z3::expr l_times_x_max = z3::ite(l_times_l>l_times_u, l_times_l, l_times_u);
+		z3::expr u_times_x_min = z3::ite(u_times_l<u_times_u, u_times_l, u_times_u);
+		z3::expr u_times_x_max = z3::ite(u_times_l>u_times_u, u_times_l, u_times_u);
+		lower = z3::ite(l_times_x_min<u_times_x_min, l_times_x_min, u_times_x_min);
+		upper = z3::ite(l_times_x_max>u_times_x_max, l_times_x_max, u_times_x_max);
+		return std::make_pair(lower,upper); }
+	default:
+		throw "Unknown arithmetic term";
+	}
+
 }
 
 
