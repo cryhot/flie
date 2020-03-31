@@ -87,29 +87,46 @@ Term_SLTL::Term_SLTL(std::string & input_Line)
 }
 
 
-z3::expr Term_SLTL::compute_Term_boolean(std::vector<signal_t>& signals, z3::expr_vector& constants, z3::context& context) {
+z3::expr Term_SLTL::compute_Term_boolean(std::vector<signal_t>& signals, z3::expr_vector& constants, z3::context& context, bool forall) {
 
 	std::pair<z3::expr,z3::expr> left = left_Term->compute_Term_arithmetic(signals, constants, context);
 	std::pair<z3::expr,z3::expr> right = right_Term->compute_Term_arithmetic(signals, constants, context);
 
-	switch (oper) {
-	case '<':
-		return (left.second < right.first);
-	case '>':
-		return (left.first > right.second);
-	case '=':
-		return ((left.first == left.second) && (right.first == right.second) && (left.first == right.first));
-	case '!':
-		return ((left.second < right.first) || (left.first > right.second));
-	default:
-		throw "Unknown boolean term";
+	if (forall) { // for all possible pathes
+
+		switch (oper) {
+		case '<':
+			return (left.second < right.first);
+		case '>':
+			return (left.first > right.second);
+		case '=':
+			return ((left.first == left.second) && (right.first == right.second) && (left.first == right.first));
+		case '!':
+			return ((left.second < right.first) || (left.first > right.second));
+		}
+
+	} else { // for at least one possible path
+
+		switch (oper) {
+		case '<':
+			return (left.first < right.second);
+		case '>':
+			return (left.second > right.second);
+		case '=':
+			return ((left.first <= right.second) && (left.second >= right.first));
+		case '!':
+			return ((left.first < left.second) || (right.first < right.second) || (left.first != right.first));
+		}
+
 	}
 
+	throw "Unknown boolean term";
 }
 
 std::pair<z3::expr,z3::expr> Term_SLTL::compute_Term_arithmetic(std::vector<signal_t>& signals, z3::expr_vector& constants, z3::context& context) {
 
 	// in a pair, first: lower bound, second: upper bound
+	// we assume (lower <= upper) always true
 	z3::expr lower(context);
 	z3::expr upper(context);
 
@@ -148,10 +165,9 @@ std::pair<z3::expr,z3::expr> Term_SLTL::compute_Term_arithmetic(std::vector<sign
 		lower = z3::ite(l_times_x_min<u_times_x_min, l_times_x_min, u_times_x_min);
 		upper = z3::ite(l_times_x_max>u_times_x_max, l_times_x_max, u_times_x_max);
 		return std::make_pair(lower,upper); }
-	default:
-		throw "Unknown arithmetic term";
 	}
 
+	throw "Unknown arithmetic term";
 }
 
 
