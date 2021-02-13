@@ -34,7 +34,7 @@ Sample_Tracer_SLTL::Sample_Tracer_SLTL(z3::context& context,
 	std::string sample_Name,
 	z3::expr_vector& variables_Constants,
 	std::vector<Term_SLTL>& terms) :
-	 Sample_Tracer(context, dag, sample_Name), terms(terms), variables_Constants(variables_Constants) 
+	 Sample_Tracer(context, dag, sample_Name), terms(terms), variables_Constants(variables_Constants)
 {
 
 
@@ -56,7 +56,8 @@ Sample_Tracer_SLTL::~Sample_Tracer_SLTL()
 void Sample_Tracer_SLTL::initialize()
 {
 	for (unsigned int i = 0; i < sample.size(); i++) {
-		variables_Y_Word_i_t.push_back(std::vector<z3::expr_vector>());
+		variables_Y_Word_i_t_any.push_back(std::vector<z3::expr_vector>());
+		variables_Y_Word_i_t_all.push_back(std::vector<z3::expr_vector>());
 	}
 
 	add_Variables(0);
@@ -72,8 +73,8 @@ void Sample_Tracer_SLTL::add_Formulas_Atomic(int iteration)
 			z3::expr_vector atomic_Vector(context);
 			int t = 0;
 			for (std::vector<signal_t> letter : word.first) {
-				atomic_Vector.push_back(z3::implies(variables_Y_Word_i_t[word_Index][iteration][t], terms[p].compute_Term_boolean(letter, variables_Constants, context, true)));
-				atomic_Vector.push_back(z3::implies(!variables_Y_Word_i_t[word_Index][iteration][t], !terms[p].compute_Term_boolean(letter, variables_Constants, context, false)));
+				atomic_Vector.push_back(variables_Y_Word_i_t_any[word_Index][iteration][t] == terms[p].compute_Term_boolean(letter, variables_Constants, context, false));
+				atomic_Vector.push_back(variables_Y_Word_i_t_all[word_Index][iteration][t] == terms[p].compute_Term_boolean(letter, variables_Constants, context, true));
 				t++;
 			}
 			z3::expr atomic = z3::implies(dag.variables_x_lambda_i[p][iteration], z3::mk_and(atomic_Vector));

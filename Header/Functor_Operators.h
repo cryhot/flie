@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) [2019] [Joshua Blickensdörfer]
+Copyright (c) [2019] [Joshua Blickensdï¿½rfer]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -34,7 +34,8 @@ public:
 	Operator_Unary() {};
 	virtual z3::expr make_Inner_Formula(int iteration, int j, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 		return z3::expr(context);
 	};
@@ -45,14 +46,17 @@ class Operator_Not : public Operator_Unary {
 public:
 	z3::expr  make_Inner_Formula(int iteration, int j, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 
 		z3::expr_vector inner_Formula(context);
 
 		for (int t = 0; t < word_Size; t++) {
-			inner_Formula.push_back(variables_Y_Word_i_t[word_Index][iteration][t] ==
-				(!variables_Y_Word_i_t[word_Index][j][t]));
+			inner_Formula.push_back(variables_Y_Word_i_t_any[word_Index][iteration][t] ==
+				(!variables_Y_Word_i_t_all[word_Index][j][t]));
+			inner_Formula.push_back(variables_Y_Word_i_t_all[word_Index][iteration][t] ==
+				(!variables_Y_Word_i_t_any[word_Index][j][t]));
 		}
 
 		return z3::mk_and(inner_Formula);
@@ -64,17 +68,22 @@ class Operator_Next : public Operator_Unary {
 public:
 	z3::expr  make_Inner_Formula(int iteration, int j, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 
 		z3::expr_vector inner_Formula(context);
 
 		for (int t = 0; t < word_Size - 1; t++) {
-			inner_Formula.push_back(variables_Y_Word_i_t[word_Index][iteration][t] ==
-				variables_Y_Word_i_t[word_Index][j][t + 1]);
+			inner_Formula.push_back(variables_Y_Word_i_t_any[word_Index][iteration][t] ==
+				variables_Y_Word_i_t_any[word_Index][j][t + 1]);
+			inner_Formula.push_back(variables_Y_Word_i_t_all[word_Index][iteration][t] ==
+				variables_Y_Word_i_t_all[word_Index][j][t + 1]);
 		}
-		inner_Formula.push_back(variables_Y_Word_i_t[word_Index][iteration][word_Size - 1] ==
-			variables_Y_Word_i_t[word_Index][j][repetition]);
+		inner_Formula.push_back(variables_Y_Word_i_t_any[word_Index][iteration][word_Size - 1] ==
+			variables_Y_Word_i_t_any[word_Index][j][repetition]);
+		inner_Formula.push_back(variables_Y_Word_i_t_all[word_Index][iteration][word_Size - 1] ==
+			variables_Y_Word_i_t_all[word_Index][j][repetition]);
 
 		return z3::mk_and(inner_Formula);
 	}
@@ -85,7 +94,8 @@ class Operator_Finally : public Operator_Unary {
 public:
 	z3::expr  make_Inner_Formula(int iteration, int j, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 
 
@@ -94,15 +104,17 @@ public:
 		z3::expr_vector conjunction_Outer(context);
 		for (int t = 0; t < word_Size; t++) {
 			int s = t;
-			z3::expr_vector conjunction(context);
+			z3::expr_vector disjunction_any(context),  disjunction_all(context);
 			int stopping_Time = (t <= repetition) ? word_Size - 1 : t - 1;
 			bool last_Loop_Done = false;
 			while (s != stopping_Time || !last_Loop_Done) {
 				if (s == stopping_Time) last_Loop_Done = true;
-				conjunction.push_back(variables_Y_Word_i_t[word_Index][j][s]);
+				disjunction_any.push_back(variables_Y_Word_i_t_any[word_Index][j][s]);
+				disjunction_all.push_back(variables_Y_Word_i_t_all[word_Index][j][s]); // too strong
 				s = (s < word_Size - 1) ? s + 1 : repetition;
 			}
-			conjunction_Outer.push_back(variables_Y_Word_i_t[word_Index][iteration][t] == z3::mk_or(conjunction));
+			conjunction_Outer.push_back(variables_Y_Word_i_t_any[word_Index][iteration][t] == z3::mk_or(disjunction_any));
+			conjunction_Outer.push_back(variables_Y_Word_i_t_all[word_Index][iteration][t] == z3::mk_or(disjunction_all));
 		}
 		z3::expr inner_Formula = z3::mk_and(conjunction_Outer);
 
@@ -137,22 +149,25 @@ class Operator_Globally : public Operator_Unary {
 public:
 	z3::expr  make_Inner_Formula(int iteration, int j, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 		z3::expr_vector conjunction_Pre_Loop(context);
 
 		z3::expr_vector conjunction_Outer(context);
 		for (int t = 0; t < word_Size; t++) {
 			int s = t;
-			z3::expr_vector conjunction(context);
+			z3::expr_vector conjunction_any(context), conjunction_all(context);
 			int stopping_Time = (t <= repetition) ? word_Size - 1 : t - 1;
 			bool last_Loop_Done = false;
 			while (s != stopping_Time || !last_Loop_Done) {
 				if (s == stopping_Time) last_Loop_Done = true;
-				conjunction.push_back(variables_Y_Word_i_t[word_Index][j][s]);
+				conjunction_any.push_back(variables_Y_Word_i_t_any[word_Index][j][s]); // too weak
+				conjunction_all.push_back(variables_Y_Word_i_t_all[word_Index][j][s]);
 				s = (s < word_Size - 1) ? s + 1 : repetition;
 			}
-			conjunction_Outer.push_back(variables_Y_Word_i_t[word_Index][iteration][t] == z3::mk_and(conjunction));
+			conjunction_Outer.push_back(variables_Y_Word_i_t_any[word_Index][iteration][t] == z3::mk_and(conjunction_any));
+			conjunction_Outer.push_back(variables_Y_Word_i_t_all[word_Index][iteration][t] == z3::mk_and(conjunction_all));
 		}
 		z3::expr inner_Formula = z3::mk_and(conjunction_Outer);
 
@@ -191,7 +206,8 @@ public:
 	Operator_Binary() {};
 	virtual z3::expr make_Inner_Formula(int iteration, int j, int k, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 		return z3::expr(context);
 	};
@@ -202,13 +218,16 @@ class Operator_Or : public Operator_Binary {
 public:
 	z3::expr  make_Inner_Formula(int iteration, int j, int k, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 
 		z3::expr_vector inner_Formula(context);
 		for (int t = 0; t < word_Size; t++) {
-			inner_Formula.push_back(variables_Y_Word_i_t[word_Index][iteration][t] ==
-				(variables_Y_Word_i_t[word_Index][j][t] || variables_Y_Word_i_t[word_Index][k][t]));
+			inner_Formula.push_back(variables_Y_Word_i_t_any[word_Index][iteration][t] ==
+				(variables_Y_Word_i_t_any[word_Index][j][t] || variables_Y_Word_i_t_any[word_Index][k][t]));
+			inner_Formula.push_back(variables_Y_Word_i_t_all[word_Index][iteration][t] ==
+				(variables_Y_Word_i_t_all[word_Index][j][t] || variables_Y_Word_i_t_all[word_Index][k][t])); // too strong
 		}
 
 		return z3::mk_and(inner_Formula);
@@ -220,13 +239,16 @@ class Operator_And : public Operator_Binary {
 public:
 	z3::expr  make_Inner_Formula(int iteration, int j, int k, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 
 		z3::expr_vector inner_Formula(context);
 		for (int t = 0; t < word_Size; t++) {
-			inner_Formula.push_back(variables_Y_Word_i_t[word_Index][iteration][t] ==
-				(variables_Y_Word_i_t[word_Index][j][t] && variables_Y_Word_i_t[word_Index][k][t]));
+			inner_Formula.push_back(variables_Y_Word_i_t_any[word_Index][iteration][t] ==
+				(variables_Y_Word_i_t_any[word_Index][j][t] && variables_Y_Word_i_t_any[word_Index][k][t])); // too weak
+			inner_Formula.push_back(variables_Y_Word_i_t_all[word_Index][iteration][t] ==
+				(variables_Y_Word_i_t_all[word_Index][j][t] && variables_Y_Word_i_t_all[word_Index][k][t]));
 		}
 
 		return z3::mk_and(inner_Formula);
@@ -238,13 +260,16 @@ class Operator_Implies : public Operator_Binary {
 public:
 	z3::expr  make_Inner_Formula(int iteration, int j, int k, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 
 		z3::expr_vector inner_Formula(context);
 		for (int t = 0; t < word_Size; t++) {
-			inner_Formula.push_back(variables_Y_Word_i_t[word_Index][iteration][t] ==
-				z3::implies(variables_Y_Word_i_t[word_Index][j][t], variables_Y_Word_i_t[word_Index][k][t]));
+			inner_Formula.push_back(variables_Y_Word_i_t_any[word_Index][iteration][t] ==
+				z3::implies(variables_Y_Word_i_t_all[word_Index][j][t], variables_Y_Word_i_t_any[word_Index][k][t]));
+			inner_Formula.push_back(variables_Y_Word_i_t_all[word_Index][iteration][t] ==
+				z3::implies(variables_Y_Word_i_t_any[word_Index][j][t], variables_Y_Word_i_t_all[word_Index][k][t])); // too strong
 		}
 
 		return z3::mk_and(inner_Formula);
@@ -256,9 +281,36 @@ class Operator_Until : public Operator_Binary {
 public:
 	z3::expr  make_Inner_Formula(int iteration, int j, int k, int word_Index,
 		z3::context& context, int word_Size, int repetition,
-		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t)
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_any,
+		std::vector<std::vector<z3::expr_vector>>& variables_Y_Word_i_t_all)
 	{
 
+		z3::expr_vector conjunction_Outer(context);
+		for (int t = 0; t < word_Size; t++) {
+			int s = t;
+			z3::expr_vector disjunction_any(context), disjunction_all(context);
+			int stopping_Time = (t <= repetition) ? word_Size - 1 : t - 1;
+			while (true) {
+				z3::expr_vector conjunction_any(context), conjunction_all(context);
+				int q = t;
+				while (q != s) {
+					conjunction_any.push_back(variables_Y_Word_i_t_any[word_Index][j][q]);
+					conjunction_all.push_back(variables_Y_Word_i_t_all[word_Index][j][q]);
+					q = (q < word_Size - 1) ? q + 1 : repetition;
+				}
+				conjunction_any.push_back(variables_Y_Word_i_t_any[word_Index][k][s]);
+				conjunction_all.push_back(variables_Y_Word_i_t_all[word_Index][k][s]);
+				disjunction_any.push_back(z3::mk_and(conjunction_any));
+				disjunction_all.push_back(z3::mk_and(conjunction_all));
+				if (s == stopping_Time) break;
+				s = (s < word_Size - 1) ? s + 1 : repetition;
+			}
+			conjunction_Outer.push_back(variables_Y_Word_i_t_any[word_Index][iteration][t] == z3::mk_or(disjunction_any));
+			conjunction_Outer.push_back(variables_Y_Word_i_t_all[word_Index][iteration][t] == z3::mk_or(disjunction_all));
+		}
+		z3::expr inner_Formula = z3::mk_and(conjunction_Outer);
+
+		/*
 		z3::expr_vector conjunction_Loop(context);
 
 		for (int t = 0; t < repetition; t++) {
@@ -297,6 +349,7 @@ public:
 
 
 		z3::expr inner_Formula = z3::mk_and(conjunction_Loop);
+		*/
 
 		return inner_Formula;
 	}

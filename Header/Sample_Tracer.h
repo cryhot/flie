@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) [2019] [Joshua Blickensdörfer]
+Copyright (c) [2019] [Joshua Blickensdï¿½rfer]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -39,10 +39,13 @@ public:
 
 	Sample_Tracer(z3::context& context, Dag& dag, std::string sample_Name);
 	/*
-	Variables_Y_Word_i_t[word_Index][i][t] should be satisfied if and only if the subformula
-	starting at node i is satisfied for the word with word_Index at position t.
+	variables_Y_Word_i_t_any[word_Index][i][t] and variables_Y_Word_i_t_all[word_Index][i][t]
+	should be satisfied if and only if the subformula
+	starting at node i is satisfied for the word with word_Index at position t,
+	respectively for any or all described word.
 	*/
-	std::vector<std::vector<z3::expr_vector>> variables_Y_Word_i_t;
+	std::vector<std::vector<z3::expr_vector>> variables_Y_Word_i_t_any;
+	std::vector<std::vector<z3::expr_vector>> variables_Y_Word_i_t_all;
 	/*
 	Saves all formulas which are used to track the satisfiability of the subformulas.
 	Remains emtpy when an incremental solver is used.
